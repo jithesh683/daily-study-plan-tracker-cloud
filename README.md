@@ -1,18 +1,59 @@
-# Daily Task Tracker — GitHub Pages + Supabase
+# Daily Study Plan / Task Tracker — GitHub Pages + Supabase
 
-This version keeps the existing tracker UI but stores tasks in Supabase so the same task/status data can be used from multiple computers and browsers.
+This is a static GitHub Pages website using Supabase as the shared cloud database.
+
+## What this solves
+
+The tracker does NOT store tasks only in the browser. Tasks are stored in Supabase, so the same task/status is available from different computers and browsers.
+
+It also listens for Supabase realtime changes, so a change made on one computer can appear on another open tracker.
 
 ## Setup
 
-1. Create a Supabase project.
-2. Open **SQL Editor** and run `supabase-setup.sql`.
-3. In Supabase, open **Connect** / API Keys and copy the **Project URL** and **Publishable key**. Supabase documents the browser `createClient()` pattern and recommends a publishable key for browser code; never expose a secret/service-role key. See the official docs: https://supabase.com/docs/reference/javascript/initializing and https://supabase.com/docs/guides/getting-started/api-keys
-4. Open `index.html` and replace:
-   - `PASTE_YOUR_SUPABASE_PROJECT_URL_HERE`
-   - `PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE`
-5. Commit the updated `index.html` to the GitHub repository.
-6. GitHub Pages will rebuild the site.
+### 1. Supabase
+
+1. Open your Supabase project.
+2. Go to **SQL Editor**.
+3. Open `supabase-setup.sql`.
+4. Run the complete SQL.
+5. Click **Connect** in Supabase and choose the **Framework**/client option if needed.
+6. Copy your Project URL and the public **publishable/anon key**.
+
+### 2. Configure the website
+
+Open `config.js` and replace:
+
+- `PASTE_YOUR_SUPABASE_PROJECT_URL_HERE`
+- `PASTE_YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY_HERE`
+
+Do NOT use a `service_role` or secret key in `config.js`.
+
+### 3. Upload to GitHub
+
+Put these files in the root of your repository:
+
+- `index.html`
+- `config.js`
+- `supabase-setup.sql`
+- `README.md`
+
+Commit the changes.
+
+### 4. Enable GitHub Pages
+
+Repository → **Settings** → **Pages**
+
+Under **Build and deployment**:
+
+- Source: **Deploy from a branch**
+- Branch: **main**
+- Folder: **/ (root)**
+- Click **Save**
+
+After GitHub finishes deployment, open the Pages URL.
 
 ## Important security note
 
-The included SQL intentionally allows anonymous read/write access so this simple tracker works without login. Anyone who has the website URL could potentially modify the data. For confidential company/NPD data, use Supabase Auth + Row Level Security policies tied to authenticated users/team membership before production use.
+This version is intentionally configured for a shared public tracker. The public Supabase key is okay to place in a frontend, but the SQL policies allow anyone with access to the site to read/write/delete tracker rows.
+
+For a private company tracker, add Supabase Authentication and change the RLS policies before using it with sensitive information.

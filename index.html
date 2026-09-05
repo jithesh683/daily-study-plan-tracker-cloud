@@ -4,621 +4,134 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daily Task Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root{
-    --navy:#0b1c33; --navy2:#122844; --panel:#0f2038; --card:#132a47;
-    --teal:#1d9e75; --teal-l:#5dcaa5; --amber:#ef9f27; --amber-l:#fac775;
-    --red:#e24b4a; --text:#e8edf5; --sub:#93a3bd; --line:#22385a;
-    --blue:#378add;
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    background:linear-gradient(180deg,#081527,#0b1c33 300px,#0d1f38); color:var(--text);
-    padding:24px; min-height:100vh;
-  }
-  h1{font-size:20px; font-weight:600; margin:0 0 4px;}
-  .sub{color:var(--sub); font-size:13px; margin-bottom:20px;}
-  .summary{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:20px;}
-  .stat{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px;}
-  .stat .n{font-size:22px; font-weight:700;}
-  .stat .l{font-size:12px; color:var(--sub); margin-top:2px;}
-  .stat.pending .n{color:var(--amber-l);}
-  .stat.overdue .n{color:var(--red);}
-  .stat.done .n{color:var(--teal-l);}
-  .stat.total .n{color:var(--blue);}
-  .who-panel{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:20px;}
-  .who-panel h3{margin:0 0 10px; font-size:13px; color:var(--sub); font-weight:600; text-transform:uppercase; letter-spacing:.04em;}
-  .who-row{display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--line); font-size:13px;}
-  .who-row:last-child{border-bottom:none;}
-  .who-row .cnt{background:var(--amber); color:#412402; font-weight:700; border-radius:12px; padding:1px 10px; font-size:12px;}
-  .toolbar{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; align-items:center;}
-  button{
-    background:var(--teal); color:#04342c; border:none; border-radius:7px; padding:9px 16px;
-    font-size:13px; font-weight:600; cursor:pointer;
-  }
-  button.secondary{background:var(--navy2); color:var(--text); border:1px solid var(--line);}
-  button.danger{background:var(--red); color:#fff;}
-  select, input[type=text], input[type=date], textarea{
-    background:var(--navy2); border:1px solid var(--line); color:var(--text);
-    border-radius:6px; padding:8px 10px; font-size:13px; font-family:inherit;
-  }
-  .filters{display:flex; gap:8px; flex-wrap:wrap;}
-  table{width:100%; border-collapse:collapse; font-size:12.5px; background:var(--panel); border-radius:10px; overflow:hidden;}
-  thead th{
-    background:var(--navy2); color:var(--sub); text-align:left; padding:10px 8px;
-    font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.03em;
-    border-bottom:1px solid var(--line); white-space:nowrap;
-  }
-  tbody td{padding:9px 8px; border-bottom:1px solid var(--line); vertical-align:top;}
-  tbody tr:hover{background:#0f2340;}
-  tbody tr.overdue{border-left:3px solid var(--red);}
-  .badge{padding:2px 9px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap; display:inline-block;}
-  .b-open{background:#22385a; color:#9fc2f0;}
-  .b-progress{background:#3c3489; color:#cecbf6;}
-  .b-pending{background:var(--amber); color:#412402;}
-  .b-completed{background:#0f6e56; color:#9fe1cb;}
-  .b-hold{background:#444441; color:#d3d1c7;}
-  .p-high{color:var(--red); font-weight:700;}
-  .p-medium{color:var(--amber-l); font-weight:700;}
-  .p-low{color:var(--sub); font-weight:600;}
-  .t-task{color:var(--blue);}
-  .t-dev{color:var(--teal-l);}
-  .delay{color:var(--red); font-weight:700;}
-  .ok-delay{color:var(--teal-l);}
-  .actions button{padding:5px 9px; font-size:11px;}
-  .table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px;}
-  .modal-bg{
-    display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:50;
-    align-items:center; justify-content:center; padding:20px;
-  }
-  .modal-bg.show{display:flex;}
-  .modal{
-    background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:24px;
-    width:100%; max-width:640px; max-height:85vh; overflow-y:auto;
-  }
-  .modal h2{margin:0 0 16px; font-size:16px;}
-  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
-  .form-grid .full{grid-column:1/-1;}
-  .form-grid label{display:block; font-size:11px; color:var(--sub); margin-bottom:4px; text-transform:uppercase; letter-spacing:.03em;}
-  .form-grid select, .form-grid input, .form-grid textarea{width:100%;}
-  .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:18px;}
-  .empty{text-align:center; padding:40px; color:var(--sub); font-size:13px;}
-  .desc-cell{max-width:180px;}
-  .remarks-cell{max-width:150px; color:var(--sub);}
-  .loading{text-align:center; padding:30px; color:var(--sub);}
-
-  @media (max-width: 800px){
-    body{padding:14px;}
-    .form-grid{grid-template-columns:1fr;}
-    .form-grid .full{grid-column:auto;}
-    .toolbar{align-items:stretch;}
-    .filters{width:100%;}
-    .filters select,.filters input,.filters button{flex:1 1 160px;}
-    .modal{padding:18px;}
-    h1{font-size:18px;}
-  }
-
+:root{--navy:#0b1c33;--navy2:#122844;--panel:#0f2038;--card:#132a47;--teal:#1d9e75;--teal-l:#5dcaa5;--amber:#ef9f27;--amber-l:#fac775;--red:#e24b4a;--text:#e8edf5;--sub:#93a3bd;--line:#22385a;--blue:#378add}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(180deg,#081527,#0b1c33 300px,#0d1f38);color:var(--text);padding:24px;min-height:100vh}
+h1{font-size:20px;font-weight:600;margin:0 0 4px}.sub{color:var(--sub);font-size:13px;margin-bottom:20px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.stat,.who-panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}.stat .n{font-size:22px;font-weight:700}.stat .l{font-size:12px;color:var(--sub);margin-top:2px}
+.stat.pending .n{color:var(--amber-l)}.stat.overdue .n{color:var(--red)}.stat.done .n{color:var(--teal-l)}.stat.total .n{color:var(--blue)}
+.who-panel{margin-bottom:20px}.who-panel h3{margin:0 0 10px;font-size:13px;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.who-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}.who-row:last-child{border-bottom:none}.who-row .cnt{background:var(--amber);color:#412402;font-weight:700;border-radius:12px;padding:1px 10px;font-size:12px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+button{background:var(--teal);color:#04342c;border:none;border-radius:7px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+button.secondary{background:var(--navy2);color:var(--text);border:1px solid var(--line)}button.danger{background:var(--red);color:#fff}
+select,input[type=text],input[type=date],textarea{background:var(--navy2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit}.filters{display:flex;gap:8px;flex-wrap:wrap}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--panel);border-radius:10px;overflow:hidden}
+thead th{background:var(--navy2);color:var(--sub);text-align:left;padding:10px 8px;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}tbody tr:hover{background:#0f2340}tbody tr.overdue{border-left:3px solid var(--red)}
+.badge{padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;display:inline-block}.b-open{background:#22385a;color:#9fc2f0}.b-progress{background:#3c3489;color:#cecbf6}.b-pending{background:var(--amber);color:#412402}.b-completed{background:#0f6e56;color:#9fe1cb}.b-hold{background:#444441;color:#d3d1c7}
+.p-high{color:var(--red);font-weight:700}.p-medium{color:var(--amber-l);font-weight:700}.p-low{color:var(--sub);font-weight:600}.t-task{color:var(--blue)}.t-dev{color:var(--teal-l)}.delay{color:var(--red);font-weight:700}.ok-delay{color:var(--teal-l)}
+.actions button{padding:5px 9px;font-size:11px}.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;align-items:center;justify-content:center;padding:20px}.modal-bg.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;width:100%;max-width:640px;max-height:85vh;overflow-y:auto}.modal h2{margin:0 0 16px;font-size:16px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form-grid .full{grid-column:1/-1}.form-grid label{display:block;font-size:11px;color:var(--sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em}.form-grid select,.form-grid input,.form-grid textarea{width:100%}.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}.empty{text-align:center;padding:40px;color:var(--sub);font-size:13px}.loading{text-align:center;padding:30px;color:var(--sub)}
+.notice{background:#1a2f4c;border:1px solid var(--line);padding:10px 12px;border-radius:8px;color:var(--sub);font-size:12px;margin-bottom:14px;display:none}
+@media(max-width:700px){body{padding:14px}.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}}
 </style>
 </head>
 <body>
-
 <h1>Daily task tracker</h1>
-<div class="sub">Track project tasks and dev work with follow-ups, delays, and status</div>
-
-<div id="loading" class="loading">Loading your tasks…</div>
+<div class="sub">Track project tasks and development work — shared across computers through Supabase.</div>
+<div id="notice" class="notice"></div>
+<div id="loading" class="loading">Connecting to the shared database…</div>
 
 <div id="app" style="display:none;">
-
-  <div class="summary">
-    <div class="stat total"><div class="n" id="statTotal">0</div><div class="l">Total items</div></div>
-    <div class="stat pending"><div class="n" id="statPending">0</div><div class="l">Pending</div></div>
-    <div class="stat overdue"><div class="n" id="statOverdue">0</div><div class="l">Overdue / delayed</div></div>
-    <div class="stat done"><div class="n" id="statDone">0</div><div class="l">Completed</div></div>
-  </div>
-
-  <div class="who-panel">
-    <h3>Pending with (by person / dept)</h3>
-    <div id="whoList"></div>
-  </div>
-
-  <div class="toolbar">
-    <button onclick="openModal()">+ Add task</button>
-    <div class="filters">
-      <select id="fltStatus" onchange="render()">
-        <option value="">All status</option>
-        <option>Open</option><option>In Progress</option><option>Pending</option><option>On Hold</option><option>Completed</option>
-      </select>
-      <select id="fltType" onchange="render()">
-        <option value="">All types</option>
-        <option>Task</option><option>Development</option>
-      </select>
-      <select id="fltPriority" onchange="render()">
-        <option value="">All priority</option>
-        <option>High</option><option>Medium</option><option>Low</option>
-      </select>
-      <input type="text" id="fltSearch" placeholder="Search project / item code / person…" oninput="render()" style="min-width:220px;">
-      <button class="secondary" onclick="clearFilters()">Clear</button>
-      <button class="secondary" onclick="exportTasks()">Export JSON</button>
-      <button class="secondary" onclick="document.getElementById('importFile').click()">Import JSON</button>
-      <input id="importFile" type="file" accept=".json,application/json" style="display:none" onchange="importTasks(event)">
-    </div>
-  </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Project</th><th>Item code</th><th>Description / task</th><th>Type</th>
-          <th>Pending with (dept)</th><th>Follow-up person</th><th>Priority</th><th>Status</th>
-          <th>Start date</th><th>End date</th><th>Target date</th><th>Delay</th>
-          <th>Remarks</th><th></th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
-  <div id="emptyMsg" class="empty" style="display:none;">No tasks yet. Click "+ Add task" to get started.</div>
+<div class="summary">
+<div class="stat total"><div class="n" id="statTotal">0</div><div class="l">Total items</div></div>
+<div class="stat pending"><div class="n" id="statPending">0</div><div class="l">Pending</div></div>
+<div class="stat overdue"><div class="n" id="statOverdue">0</div><div class="l">Overdue / delayed</div></div>
+<div class="stat done"><div class="n" id="statDone">0</div><div class="l">Completed</div></div>
 </div>
 
-<div class="modal-bg" id="modalBg">
-  <div class="modal">
-    <h2 id="modalTitle">Add task</h2>
-    <div class="form-grid">
-      <div><label>Project</label><input type="text" id="fProject" placeholder="e.g. Z115 HLCU"></div>
-      <div><label>Item code</label><input type="text" id="fItemCode" placeholder="e.g. IMCR-300W"></div>
-      <div class="full"><label>Description / task</label><textarea id="fDesc" rows="2" placeholder="What needs to be done"></textarea></div>
-      <div><label>Type</label>
-        <select id="fType"><option>Task</option><option>Development</option></select>
-      </div>
-      <div><label>Priority</label>
-        <select id="fPriority"><option>Medium</option><option>High</option><option>Low</option></select>
-      </div>
-      <div><label>Pending with (dept)</label><input type="text" id="fPendingDept" placeholder="e.g. Quality / Procurement"></div>
-      <div><label>Follow-up person</label><input type="text" id="fFollowup" placeholder="e.g. Rakesh"></div>
-      <div><label>Status</label>
-        <select id="fStatus"><option>Open</option><option>In Progress</option><option>Pending</option><option>On Hold</option><option>Completed</option></select>
-      </div>
-      <div><label>Start date</label><input type="date" id="fStart"></div>
-      <div><label>End date</label><input type="date" id="fEnd"></div>
-      <div><label>Target date</label><input type="date" id="fTarget"></div>
-      <div class="full"><label>Remarks</label><textarea id="fRemarks" rows="2" placeholder="Any notes"></textarea></div>
-    </div>
-    <div class="modal-actions">
-      <button class="secondary" onclick="closeModal()">Cancel</button>
-      <button class="danger" id="delBtn" style="display:none;" onclick="deleteTask()">Delete</button>
-      <button onclick="saveTask()">Save</button>
-    </div>
-  </div>
+<div class="who-panel"><h3>Pending with (by person / dept)</h3><div id="whoList"></div></div>
+
+<div class="toolbar">
+<button onclick="openModal()">+ Add task</button>
+<div class="filters">
+<select id="fltStatus" onchange="render()"><option value="">All status</option><option>Open</option><option>In Progress</option><option>Pending</option><option>On Hold</option><option>Completed</option></select>
+<select id="fltType" onchange="render()"><option value="">All types</option><option>Task</option><option>Development</option></select>
+<select id="fltPriority" onchange="render()"><option value="">All priority</option><option>High</option><option>Medium</option><option>Low</option></select>
+<input type="text" id="fltSearch" placeholder="Search project / item code / person…" oninput="render()" style="min-width:220px">
+<button class="secondary" onclick="clearFilters()">Clear</button>
+</div>
 </div>
 
+<div class="table-wrap"><table><thead><tr>
+<th>Project</th><th>Item code</th><th>Description / task</th><th>Type</th><th>Pending with (dept)</th><th>Follow-up person</th><th>Priority</th><th>Status</th><th>Start date</th><th>End date</th><th>Target date</th><th>Delay</th><th>Remarks</th><th></th>
+</tr></thead><tbody id="tbody"></tbody></table></div>
+<div id="emptyMsg" class="empty" style="display:none;">No tasks yet. Click "+ Add task" to get started.</div>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal">
+<h2 id="modalTitle">Add task</h2>
+<div class="form-grid">
+<div><label>Project</label><input type="text" id="fProject" placeholder="e.g. Z115 HLCU"></div>
+<div><label>Item code</label><input type="text" id="fItemCode" placeholder="e.g. IMCR-300W"></div>
+<div class="full"><label>Description / task</label><textarea id="fDesc" rows="2" placeholder="What needs to be done"></textarea></div>
+<div><label>Type</label><select id="fType"><option>Task</option><option>Development</option></select></div>
+<div><label>Priority</label><select id="fPriority"><option>Medium</option><option>High</option><option>Low</option></select></div>
+<div><label>Pending with (dept)</label><input type="text" id="fPendingDept" placeholder="e.g. Quality / Procurement"></div>
+<div><label>Follow-up person</label><input type="text" id="fFollowup" placeholder="e.g. Rakesh"></div>
+<div><label>Status</label><select id="fStatus"><option>Open</option><option>In Progress</option><option>Pending</option><option>On Hold</option><option>Completed</option></select></div>
+<div><label>Start date</label><input type="date" id="fStart"></div>
+<div><label>End date</label><input type="date" id="fEnd"></div>
+<div><label>Target date</label><input type="date" id="fTarget"></div>
+<div class="full"><label>Remarks</label><textarea id="fRemarks" rows="2" placeholder="Any notes"></textarea></div>
+</div>
+<div class="modal-actions"><button class="secondary" onclick="closeModal()">Cancel</button><button class="danger" id="delBtn" style="display:none" onclick="deleteTask()">Delete</button><button onclick="saveTask()">Save</button></div>
+</div></div>
+
+<script src="config.js"></script>
 <script>
-let tasks = [];
-let editingId = null;
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let tasks=[], editingId=null;
 
-function uid(){ return 't' + Date.now() + Math.random().toString(36).slice(2,7); }
-
+function showNotice(msg){const n=document.getElementById('notice');n.textContent=msg;n.style.display='block'}
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function calcDelay(t){if(t.status==='Completed'||!t.target_date)return null;const today=new Date(todayStr()),target=new Date(t.target_date);const d=Math.round((today-target)/86400000);return d>0?d:0}
+function toTask(r){return {id:r.id,project:r.project,itemCode:r.item_code||'',desc:r.description||'',type:r.type||'Task',priority:r.priority||'Medium',pendingDept:r.pending_dept||'',followup:r.followup||'',status:r.status||'Open',startDate:r.start_date||'',endDate:r.end_date||'',targetDate:r.target_date||'',remarks:r.remarks||''}}
 async function loadTasks(){
-  try{
-    const saved = localStorage.getItem('dailyTaskTracker.tasks');
-    tasks = saved ? JSON.parse(saved) : [];
-    if (!Array.isArray(tasks)) tasks = [];
-  }catch(e){
-    console.error('Load failed', e);
-    tasks = [];
-  }
-  document.getElementById('loading').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  render();
+ try{
+  const {data,error}=await client.from('study_topics').select('*').order('target_date',{ascending:true,nullsFirst:false}).order('created_at',{ascending:false});
+  if(error) throw error; tasks=(data||[]).map(toTask);
+  document.getElementById('loading').style.display='none';document.getElementById('app').style.display='block';render();
+  client.channel('study_topics_changes').on('postgres_changes',{event:'*',schema:'public',table:'study_topics'},()=>loadTasks()).subscribe();
+ }catch(e){document.getElementById('loading').textContent='Database connection failed.';showNotice('Check config.js and confirm the Supabase SQL setup has been run. Error: '+e.message)}
 }
-
-async function persist(){
-  try{
-    localStorage.setItem('dailyTaskTracker.tasks', JSON.stringify(tasks));
-  }catch(e){
-    console.error('Save failed', e);
-    alert('Unable to save data in this browser.');
-  }
-}
-
-function todayStr(){
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function calcDelay(t){
-  if(t.status === 'Completed' || !t.targetDate) return null;
-  const today = new Date(todayStr());
-  const target = new Date(t.targetDate);
-  const diffDays = Math.round((today - target) / 86400000);
-  return diffDays > 0 ? diffDays : 0;
-}
-
-function openModal(id){
-  editingId = id || null;
-  document.getElementById('modalTitle').textContent = id ? 'Edit task' : 'Add task';
-  document.getElementById('delBtn').style.display = id ? 'inline-block' : 'none';
-  if(id){
-    const t = tasks.find(x=>x.id===id);
-    document.getElementById('fProject').value = t.project||'';
-    document.getElementById('fItemCode').value = t.itemCode||'';
-    document.getElementById('fDesc').value = t.desc||'';
-    document.getElementById('fType').value = t.type||'Task';
-    document.getElementById('fPriority').value = t.priority||'Medium';
-    document.getElementById('fPendingDept').value = t.pendingDept||'';
-    document.getElementById('fFollowup').value = t.followup||'';
-    document.getElementById('fStatus').value = t.status||'Open';
-    document.getElementById('fStart').value = t.startDate||'';
-    document.getElementById('fEnd').value = t.endDate||'';
-    document.getElementById('fTarget').value = t.targetDate||'';
-    document.getElementById('fRemarks').value = t.remarks||'';
-  } else {
-    ['fProject','fItemCode','fDesc','fPendingDept','fFollowup','fStart','fEnd','fTarget','fRemarks'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('fType').value='Task';
-    document.getElementById('fPriority').value='Medium';
-    document.getElementById('fStatus').value='Open';
-    document.getElementById('fStart').value = todayStr();
-  }
-  document.getElementById('modalBg').classList.add('show');
-}
-
-function closeModal(){
-  document.getElementById('modalBg').classList.remove('show');
-  editingId = null;
-}
-
 async function saveTask(){
-  const project = document.getElementById('fProject').value.trim();
-  const desc = document.getElementById('fDesc').value.trim();
-  if(!project || !desc){
-    alert('Please enter at least Project and Description / task.');
-    return;
-  }
-  const data = {
-    project,
-    itemCode: document.getElementById('fItemCode').value.trim(),
-    desc,
-    type: document.getElementById('fType').value,
-    priority: document.getElementById('fPriority').value,
-    pendingDept: document.getElementById('fPendingDept').value.trim(),
-    followup: document.getElementById('fFollowup').value.trim(),
-    status: document.getElementById('fStatus').value,
-    startDate: document.getElementById('fStart').value,
-    endDate: document.getElementById('fEnd').value,
-    targetDate: document.getElementById('fTarget').value,
-    remarks: document.getElementById('fRemarks').value.trim()
-  };
-  if(editingId){
-    const idx = tasks.findIndex(t=>t.id===editingId);
-    tasks[idx] = {...tasks[idx], ...data};
-  } else {
-    tasks.push({id: uid(), ...data, createdAt: Date.now()});
-  }
-  await persist();
-  closeModal();
-  render();
+ const project=fProject.value.trim(),desc=fDesc.value.trim();
+ if(!project||!desc){alert('Please enter at least Project and Description / task.');return}
+ const data={project,item_code:fItemCode.value.trim(),description:desc,type:fType.value,priority:fPriority.value,pending_dept:fPendingDept.value.trim(),followup:fFollowup.value.trim(),status:fStatus.value,start_date:fStart.value||null,end_date:fEnd.value||null,target_date:fTarget.value||null,remarks:fRemarks.value.trim()};
+ try{
+  let error;
+  if(editingId)({error}=await client.from('study_topics').update(data).eq('id',editingId));
+  else({error}=await client.from('study_topics').insert(data));
+  if(error)throw error; closeModal();await loadTasks();
+ }catch(e){alert('Save failed: '+e.message)}
 }
-
-async function deleteTask(){
-  if(!editingId) return;
-  if(!confirm('Delete this task?')) return;
-  tasks = tasks.filter(t=>t.id!==editingId);
-  await persist();
-  closeModal();
-  render();
+async function deleteTask(){if(!editingId||!confirm('Delete this task?'))return;try{const{error}=await client.from('study_topics').delete().eq('id',editingId);if(error)throw error;closeModal();await loadTasks()}catch(e){alert('Delete failed: '+e.message)}}
+function openModal(id){
+ editingId=id||null;modalTitle.textContent=id?'Edit task':'Add task';delBtn.style.display=id?'inline-block':'none';
+ if(id){const t=tasks.find(x=>x.id===id);fProject.value=t.project;fItemCode.value=t.itemCode;fDesc.value=t.desc;fType.value=t.type;fPriority.value=t.priority;fPendingDept.value=t.pendingDept;fFollowup.value=t.followup;fStatus.value=t.status;fStart.value=t.startDate;fEnd.value=t.endDate;fTarget.value=t.targetDate;fRemarks.value=t.remarks}
+ else{['fProject','fItemCode','fDesc','fPendingDept','fFollowup','fStart','fEnd','fTarget','fRemarks'].forEach(x=>document.getElementById(x).value='');fType.value='Task';fPriority.value='Medium';fStatus.value='Open';fStart.value=todayStr()}
+ modalBg.classList.add('show')
 }
-
-function clearFilters(){
-  document.getElementById('fltStatus').value='';
-  document.getElementById('fltType').value='';
-  document.getElementById('fltPriority').value='';
-  document.getElementById('fltSearch').value='';
-  render();
-}
-
-function badgeClass(status){
-  return {
-    'Open':'b-open','In Progress':'b-progress','Pending':'b-pending',
-    'On Hold':'b-hold','Completed':'b-completed'
-  }[status] || 'b-open';
-}
-
+function closeModal(){modalBg.classList.remove('show');editingId=null}
+function clearFilters(){fltStatus.value='';fltType.value='';fltPriority.value='';fltSearch.value='';render()}
+function badgeClass(s){return {'Open':'b-open','In Progress':'b-progress','Pending':'b-pending','On Hold':'b-hold','Completed':'b-completed'}[s]||'b-open'}
 function render(){
-  const fs = document.getElementById('fltStatus').value;
-  const ft = document.getElementById('fltType').value;
-  const fp = document.getElementById('fltPriority').value;
-  const fq = document.getElementById('fltSearch').value.toLowerCase();
-
-  let filtered = tasks.filter(t=>{
-    if(fs && t.status!==fs) return false;
-    if(ft && t.type!==ft) return false;
-    if(fp && t.priority!==fp) return false;
-    if(fq){
-      const hay = [t.project,t.itemCode,t.followup,t.pendingDept,t.desc].join(' ').toLowerCase();
-      if(!hay.includes(fq)) return false;
-    }
-    return true;
-  });
-
-  // stats over ALL tasks (not filtered)
-  const total = tasks.length;
-  const pending = tasks.filter(t=>t.status!=='Completed').length;
-  const done = tasks.filter(t=>t.status==='Completed').length;
-  const overdue = tasks.filter(t=> (calcDelay(t)||0) > 0).length;
-  statTotal.textContent = total;
-  statPending.textContent = pending;
-  statDone.textContent = done;
-  statOverdue.textContent = overdue;
-
-  // pending-with breakdown
-  const whoMap = {};
-  tasks.filter(t=>t.status!=='Completed').forEach(t=>{
-    const key = t.pendingDept || t.followup || 'Unassigned';
-    whoMap[key] = (whoMap[key]||0)+1;
-  });
-  const whoList = document.getElementById('whoList');
-  const entries = Object.entries(whoMap).sort((a,b)=>b[1]-a[1]);
-  whoList.innerHTML = entries.length ? entries.map(([k,v])=>
-    `<div class="who-row"><span>${escapeHtml(k)}</span><span class="cnt">${v}</span></div>`
-  ).join('') : '<div class="who-row"><span>Nothing pending</span></div>';
-
-  // sort: overdue first, then by priority, then target date
-  const prioRank = {High:0, Medium:1, Low:2};
-  filtered.sort((a,b)=>{
-    const da = calcDelay(a)||0, db = calcDelay(b)||0;
-    if(db!==da) return db-da;
-    if(prioRank[a.priority]!==prioRank[b.priority]) return prioRank[a.priority]-prioRank[b.priority];
-    return (a.targetDate||'').localeCompare(b.targetDate||'');
-  });
-
-  const tbody = document.getElementById('tbody');
-  document.getElementById('emptyMsg').style.display = filtered.length ? 'none' : 'block';
-  document.querySelector('.table-wrap').style.display = filtered.length ? 'block' : 'none';
-
-  tbody.innerHTML = filtered.map(t=>{
-    const delay = calcDelay(t);
-    const delayHtml = t.status==='Completed' ? '<span class="ok-delay">Done</span>' :
-      (delay===null ? '—' : delay>0 ? `<span class="delay">${delay}d late</span>` : '<span class="ok-delay">On track</span>');
-    return `<tr class="${delay>0?'overdue':''}">
-      <td>${escapeHtml(t.project)}</td>
-      <td>${escapeHtml(t.itemCode||'—')}</td>
-      <td class="desc-cell">${escapeHtml(t.desc)}</td>
-      <td class="${t.type==='Development'?'t-dev':'t-task'}">${t.type}</td>
-      <td>${escapeHtml(t.pendingDept||'—')}</td>
-      <td>${escapeHtml(t.followup||'—')}</td>
-      <td class="p-${t.priority.toLowerCase()}">${t.priority}</td>
-      <td><span class="badge ${badgeClass(t.status)}">${t.status}</span></td>
-      <td>${t.startDate||'—'}</td>
-      <td>${t.endDate||'—'}</td>
-      <td>${t.targetDate||'—'}</td>
-      <td>${delayHtml}</td>
-      <td class="remarks-cell">${escapeHtml(t.remarks||'—')}</td>
-      <td class="actions"><button class="secondary" onclick="openModal('${t.id}')">Edit</button></td>
-    </tr>`;
-  }).join('');
+ const fs=fltStatus.value,ft=fltType.value,fp=fltPriority.value,fq=fltSearch.value.toLowerCase();
+ let filtered=tasks.filter(t=>(!fs||t.status===fs)&&(!ft||t.type===ft)&&(!fp||t.priority===fp)&&(!fq||[t.project,t.itemCode,t.followup,t.pendingDept,t.desc].join(' ').toLowerCase().includes(fq)));
+ statTotal.textContent=tasks.length;statPending.textContent=tasks.filter(t=>t.status!=='Completed').length;statDone.textContent=tasks.filter(t=>t.status==='Completed').length;statOverdue.textContent=tasks.filter(t=>(calcDelay(t)||0)>0).length;
+ const map={};tasks.filter(t=>t.status!=='Completed').forEach(t=>{const k=t.pendingDept||t.followup||'Unassigned';map[k]=(map[k]||0)+1});
+ whoList.innerHTML=Object.entries(map).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="who-row"><span>${esc(k)}</span><span class="cnt">${v}</span></div>`).join('')||'<div class="who-row"><span>Nothing pending</span></div>';
+ const rank={High:0,Medium:1,Low:2};filtered.sort((a,b)=>{const da=calcDelay(a)||0,db=calcDelay(b)||0;return db-da||rank[a.priority]-rank[b.priority]||(a.targetDate||'').localeCompare(b.targetDate||'')});
+ emptyMsg.style.display=filtered.length?'none':'block';document.querySelector('.table-wrap').style.display=filtered.length?'block':'none';
+ tbody.innerHTML=filtered.map(t=>{const d=calcDelay(t);const dh=t.status==='Completed'?'<span class="ok-delay">Done</span>':d===null?'—':d>0?`<span class="delay">${d}d late</span>`:'<span class="ok-delay">On track</span>';return `<tr class="${d>0?'overdue':''}"><td>${esc(t.project)}</td><td>${esc(t.itemCode||'—')}</td><td>${esc(t.desc)}</td><td class="${t.type==='Development'?'t-dev':'t-task'}">${esc(t.type)}</td><td>${esc(t.pendingDept||'—')}</td><td>${esc(t.followup||'—')}</td><td class="p-${t.priority.toLowerCase()}">${esc(t.priority)}</td><td><span class="badge ${badgeClass(t.status)}">${esc(t.status)}</span></td><td>${t.startDate||'—'}</td><td>${t.endDate||'—'}</td><td>${t.targetDate||'—'}</td><td>${dh}</td><td>${esc(t.remarks||'—')}</td><td class="actions"><button class="secondary" onclick="openModal('${t.id}')">Edit</button></td></tr>`}).join('')
 }
-
-function escapeHtml(s){
-  if(!s) return '';
-  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function exportTasks(){
-  const blob = new Blob([JSON.stringify(tasks, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `daily-task-tracker-${todayStr()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function importTasks(event){
-  const file = event.target.files && event.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = async () => {
-    try{
-      const imported = JSON.parse(reader.result);
-      if(!Array.isArray(imported)) throw new Error('Invalid format');
-      if(!confirm(`Import ${imported.length} task(s)? This will replace your current tasks.`)) return;
-      tasks = imported.map(t => ({...t, id: t.id || uid()}));
-      await persist();
-      render();
-      alert('Tasks imported successfully.');
-    }catch(e){
-      alert('Invalid JSON file.');
-    }finally{
-      event.target.value = '';
-    }
-  };
-  reader.readAsText(file);
-}
-
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 loadTasks();
 </script>
-
-<!-- Supabase client: official CDN pattern from Supabase docs -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-/* ================================================================
-   CLOUD DATABASE CONFIGURATION
-   1) Create a Supabase project.
-   2) Run supabase-setup.sql in Supabase SQL Editor.
-   3) Put your Project URL and PUBLISHABLE key below.
-   IMPORTANT: Never put a Supabase secret/service_role key here.
-================================================================ */
-const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_PROJECT_URL_HERE';
-const SUPABASE_PUBLISHABLE_KEY = 'PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE';
-
-const CLOUD_ENABLED =
-  SUPABASE_URL.startsWith('https://') &&
-  !SUPABASE_URL.includes('PASTE_YOUR') &&
-  SUPABASE_PUBLISHABLE_KEY &&
-  !SUPABASE_PUBLISHABLE_KEY.includes('PASTE_YOUR');
-
-let supabaseClient = null;
-if (CLOUD_ENABLED) {
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-}
-
-async function cloudLoadTasks(){
-  const { data, error } = await supabaseClient
-    .from('daily_tasks')
-    .select('id,task,created_at')
-    .order('created_at', { ascending: false });
-  if(error) throw error;
-  return (data || []).map(row => ({...row.task, id: row.id}));
-}
-
-async function cloudUpsertTask(task){
-  const { error } = await supabaseClient
-    .from('daily_tasks')
-    .upsert({ id: task.id, task: task, created_at: new Date(task.createdAt || Date.now()).toISOString() }, { onConflict: 'id' });
-  if(error) throw error;
-}
-
-async function cloudDeleteTask(id){
-  const { error } = await supabaseClient.from('daily_tasks').delete().eq('id', id);
-  if(error) throw error;
-}
-
-async function migrateLocalTasksToCloud(localTasks){
-  if(!localTasks.length) return;
-  const rows = localTasks.map(t => ({
-    id: t.id || uid(),
-    task: {...t},
-    created_at: new Date(t.createdAt || Date.now()).toISOString()
-  }));
-  const { error } = await supabaseClient.from('daily_tasks').upsert(rows, { onConflict: 'id' });
-  if(error) throw error;
-}
-
-async function initCloudSync(){
-  if(!CLOUD_ENABLED) return;
-  try {
-    // Load shared data first. If the cloud is empty, offer the old browser data as a one-time migration.
-    let cloudTasks = await cloudLoadTasks();
-    const localRaw = localStorage.getItem('dailyTaskTracker.tasks');
-    const localTasks = localRaw ? JSON.parse(localRaw) : [];
-    if(cloudTasks.length === 0 && Array.isArray(localTasks) && localTasks.length > 0){
-      const migrate = confirm('Cloud database is empty. Upload the tasks saved on this browser to the shared tracker?');
-      if(migrate){
-        await migrateLocalTasksToCloud(localTasks);
-        cloudTasks = await cloudLoadTasks();
-      }
-    }
-    tasks = cloudTasks;
-    render();
-
-    // Real-time sync: changes made from another computer are reflected here automatically.
-    supabaseClient
-      .channel('daily-task-tracker-sync')
-      .on('postgres_changes', {event:'*', schema:'public', table:'daily_tasks'}, async () => {
-        try {
-          tasks = await cloudLoadTasks();
-          render();
-        } catch(e) { console.error('Realtime refresh failed', e); }
-      })
-      .subscribe();
-  } catch(e){
-    console.error('Cloud load failed', e);
-    alert('Cloud database connection failed. Check your Supabase URL/key and SQL setup.');
-  }
-}
-
-// Override the local-only functions with cloud-backed versions.
-const localLoadTasks = loadTasks;
-const localPersist = persist;
-
-loadTasks = async function(){
-  if(!CLOUD_ENABLED){
-    await localLoadTasks();
-    return;
-  }
-  document.getElementById('loading').textContent = 'Connecting to shared database…';
-  try {
-    tasks = await cloudLoadTasks();
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    render();
-    await initCloudSync();
-  } catch(e){
-    console.error(e);
-    document.getElementById('loading').textContent = 'Unable to connect to cloud database.';
-  }
-};
-
-persist = async function(){
-  if(!CLOUD_ENABLED){
-    await localPersist();
-    return;
-  }
-  // Persist all current tasks for compatibility with the existing UI.
-  // Individual save/delete operations below perform the actual cloud mutation.
-  try {
-    localStorage.setItem('dailyTaskTracker.tasks', JSON.stringify(tasks));
-  } catch(e) { console.warn('Local backup failed', e); }
-};
-
-const originalSaveTask = saveTask;
-saveTask = async function(){
-  if(!CLOUD_ENABLED){ return originalSaveTask(); }
-  const project = document.getElementById('fProject').value.trim();
-  const desc = document.getElementById('fDesc').value.trim();
-  if(!project || !desc){ alert('Please enter at least Project and Description / task.'); return; }
-  const data = {
-    project,
-    itemCode: document.getElementById('fItemCode').value.trim(),
-    desc,
-    type: document.getElementById('fType').value,
-    priority: document.getElementById('fPriority').value,
-    pendingDept: document.getElementById('fPendingDept').value.trim(),
-    followup: document.getElementById('fFollowup').value.trim(),
-    status: document.getElementById('fStatus').value,
-    startDate: document.getElementById('fStart').value,
-    endDate: document.getElementById('fEnd').value,
-    targetDate: document.getElementById('fTarget').value,
-    remarks: document.getElementById('fRemarks').value.trim()
-  };
-  try {
-    let task;
-    if(editingId){
-      const existing = tasks.find(t=>t.id===editingId) || {id: editingId, createdAt: Date.now()};
-      task = {...existing, ...data};
-    } else {
-      task = {id: uid(), ...data, createdAt: Date.now()};
-    }
-    await cloudUpsertTask(task);
-    tasks = await cloudLoadTasks();
-    await persist();
-    closeModal();
-    render();
-  } catch(e){
-    console.error(e);
-    alert('Could not save the task to the shared database.');
-  }
-};
-
-const originalDeleteTask = deleteTask;
-deleteTask = async function(){
-  if(!CLOUD_ENABLED){ return originalDeleteTask(); }
-  if(!editingId) return;
-  if(!confirm('Delete this task?')) return;
-  try {
-    await cloudDeleteTask(editingId);
-    tasks = tasks.filter(t=>t.id!==editingId);
-    await persist();
-    closeModal();
-    render();
-  } catch(e){
-    console.error(e);
-    alert('Could not delete the task from the shared database.');
-  }
-};
-</script>
-</body>
-</html>
+</body></html>
